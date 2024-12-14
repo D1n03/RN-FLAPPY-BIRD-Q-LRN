@@ -90,6 +90,8 @@ class Agent:
         for i in range(len(target_values)):
             target_values[i][actions[i]] = (rewards[i] + self.gamma * torch.max(next_values[i]) * (1 - dones[i]))
 
+        return target_values
+
     def preprocess_image(self, obs_image_rgb):
         """Crop, grayscale, and resize the input image"""
         # Remove unnecessary parts of the image
@@ -292,7 +294,6 @@ class Agent:
 
 if __name__ == '__main__':
     agent = Agent()
-    agent.load_model("checkpoints/checkpoint_model2-10.0.pth")
-    agent.test()
-    # agent.train(100)
     # agent.load_model("checkpoints/checkpoint_model2-10.0.pth")
+    # agent.test()
+    agent.train(2000)
