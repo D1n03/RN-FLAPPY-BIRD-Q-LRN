@@ -33,8 +33,11 @@ class ReplayBuffer:
 class Agent:
     """DQN Agent for Flappy Bird"""
     def __init__(self):
+        # CUDA device setup
+        self.device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+        print(f"Using device: {self.device}")
         # inputs channels: 1 (grayscale), output: 2 (flap or no-flap)
-        self.model = NN(1, 2)
+        self.model = NN(1, 2).to(self.device)
 
         # image preprocessing parameters
         self.resize_width = 84
@@ -131,7 +134,7 @@ class Agent:
             cv2.imshow("Flappy Bird", cv2.cvtColor(obs_image_rgb, cv2.COLOR_RGB2BGR))
             cv2.waitKey(1)
 
-            obs_processed = self.preprocess_image(obs_image_rgb)
+            obs_processed = self.preprocess_image(obs_image_rgb).to(self.device)
 
             rewards1 = []
             actions1 = []
@@ -167,7 +170,7 @@ class Agent:
                 actions1.append(action)
                 next_image_rgb = self.env.render()
 
-                next_obs_processed = self.preprocess_image(next_image_rgb)
+                next_obs_processed = self.preprocess_image(next_image_rgb).to(self.device)
 
                 self.replay_buffer.add_experience(obs_processed, action, reward, next_obs_processed, done)
 
@@ -177,11 +180,11 @@ class Agent:
 
                     # Process the batch
                     states, actions, rewards, next_states, dones = zip(*batch)
-                    states = torch.stack(states)
-                    actions = torch.LongTensor(actions)
-                    rewards = torch.Tensor(rewards)
-                    next_states = torch.stack(next_states)
-                    dones = torch.LongTensor(dones)
+                    states = torch.stack(states).to(self.device)
+                    actions = torch.LongTensor(actions).to(self.device)
+                    rewards = torch.Tensor(rewards).to(self.device)
+                    next_states = torch.stack(next_states).to(self.device)
+                    dones = torch.LongTensor(dones).to(self.device)
 
                     # Forward pass
                     q_values = self.model(states)
@@ -294,6 +297,7 @@ class Agent:
 
 if __name__ == '__main__':
     agent = Agent()
-    # agent.load_model("checkpoints/checkpoint_model2-10.0.pth")
-    # agent.test()
+    agent.load_model("checkpoints/checkpoint_model2-32.0.pth")
     agent.train(2000)
+    # agent.test()
+    # agent.train(20000)
