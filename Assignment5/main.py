@@ -124,16 +124,20 @@ class Agent:
                 self.save_model(f"checkpoints/checkpoint_model2-{9 + (epoch + 1) / 100}.pth")
 
             epoch += 1
-            # Decay epsilon
+            # Decay epsilon - over time epsilon decreases, reducing random actions in favor of learned actions
             self.epsilon = self.change_epsilon()
 
+            # reset Flappy Bird env for a new episode
+            # skip the initial frames of the game to reach a steady state
             self.env.reset()
             self.skip_first_frames()
 
+            # render the current frame of the game environment and display the rendered frame using OpenCV.
             obs_image_rgb = self.env.render()
             cv2.imshow("Flappy Bird", cv2.cvtColor(obs_image_rgb, cv2.COLOR_RGB2BGR))
             cv2.waitKey(1)
 
+            # preprocess the RGB image (cropping, resizing, grayscale conversion) and convert it to a PyTorch tensor.
             obs_processed = self.preprocess_image(obs_image_rgb).to(self.device)
 
             rewards1 = []
@@ -141,6 +145,9 @@ class Agent:
             loss = 0
             while True:
                 # select an action using epsilon-greedy policy
+                # if the agent's replay buffer isn't large enough (threshold) or random chance (epsilon) favors exploration:
+                # - take a random action (0 for no-flap, 1 for flap) with a probability controlled by flap_prob.
+                # otherwise - use the model to predict Q-values for the current state and select the action with the highest Q-value (greedy action).
                 if ((self.loaded is False and self.replay_buffer.get_length() < self.threshold)
                         or random.random() < self.epsilon):
                     action = 0
@@ -152,10 +159,13 @@ class Agent:
                         # Choose the best action
                         action = torch.argmax(q_values).item()
 
+                # Perform the chosen action in the environment
                 _, reward, done, _, info = self.env.step(action)
                 img = self.env.render()
                 cv2.imshow("Flappy Bird", cv2.cvtColor(img, cv2.COLOR_RGB2BGR))
                 cv2.waitKey(1)
+
+                # skip additional frames to smooth the agent's behavior, especially when a flap action is taken
                 skipped_frames = 1
                 if action == 1:
                     skipped_frames = 2
@@ -166,19 +176,22 @@ class Agent:
                         cv2.imshow("Flappy Bird", cv2.cvtColor(img_rgb, cv2.COLOR_RGB2BGR))
                         cv2.waitKey(1)
 
+                # record the reward and action
+                # process the next frame to get the next state representation.
+                # store the experience tuple (state, action, reward, next_state, done) in the replay buffer for later training
                 rewards1.append(reward)
                 actions1.append(action)
                 next_image_rgb = self.env.render()
-
                 next_obs_processed = self.preprocess_image(next_image_rgb).to(self.device)
-
                 self.replay_buffer.add_experience(obs_processed, action, reward, next_obs_processed, done)
 
+                # train the model only if the replay buffer has accumulated enough experiences (threshold)
                 if self.replay_buffer.get_length() > self.threshold:
-                    # Sample a batch from the replay buffer
+                    # sample a batch from the replay buffer
                     batch = self.replay_buffer.sample_batch(self.batch_size)
 
-                    # Process the batch
+                    # process the batch
+                    # extract components of the sampled batch (states, actions, rewards, next states, done flags)
                     states, actions, rewards, next_states, dones = zip(*batch)
                     states = torch.stack(states).to(self.device)
                     actions = torch.LongTensor(actions).to(self.device)
@@ -186,11 +199,13 @@ class Agent:
                     next_states = torch.stack(next_states).to(self.device)
                     dones = torch.LongTensor(dones).to(self.device)
 
-                    # Forward pass
+                    # forward pass
+                    # predicted Q-values for current states
+                    # predicted Q-values for next states (detached to avoid gradient computation)
                     q_values = self.model(states)
                     next_q_values = self.model(next_states).detach()
 
-                    # Compute target Q-values using Q-learning update
+                    # Compute target Q-values using the Bellman equation
                     target_q_values = self.compute_target_q_values(q_values, actions, rewards, next_q_values, dones)
 
                     # Compute loss
