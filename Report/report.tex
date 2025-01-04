@@ -63,7 +63,7 @@ The DQN agent consists of two main components:
 
 \subsection{Hyperparameters}
 The training hyperparameters used for the DQN agent are summarized in Table~\ref{tab:hyperparameters}.
-\begin{table}[h!]
+\begin{table}[!ht]
 \centering
 \begin{tabular}{|l|c|}
 \hline
@@ -123,14 +123,66 @@ The training process consists of:
 
 \section{Implementation Details}
 \subsection{Q-Learning Algorithm}
-The Q-learning algorithm uses the Bellman equation:
+The Q-learning algorithm uses the Bellman equation to update the Q-values:
 \[
 Q(s, a) \leftarrow Q(s, a) + \alpha \Big( r + \gamma \max_{a'} Q(s', a') - Q(s, a) \Big)
 \]
-Here, \(s\) and \(s'\) are the current and next states, \(a\) and \(a'\) are the actions, \(r\) is the reward, \(\alpha\) is the learning rate, and \(\gamma\) is the discount factor.
+where:
+\begin{itemize}
+    \item \(s\) and \(s'\) are the current and next states.
+    \item \(a\) and \(a'\) are the current and next actions.
+    \item \(r\) is the reward received after taking action \(a\) in state \(s\).
+    \item \(\alpha\) is the learning rate.
+    \item \(\gamma\) is the discount factor.
+\end{itemize}
+
+In the implementation, the target Q-values are computed as follows:
+\begin{lstlisting}[language=Python, caption=Target Q-values Calculation]
+def compute_target_q_values(self, q_values, actions, rewards, next_values, dones):
+    """Compute the target Q-values for the Bellman equation"""
+    target_values = q_values.clone()
+    for i in range(len(target_values)):
+        target_values[i][actions[i]] = (rewards[i] 
+                                        + self.gamma * torch.max(next_values[i]) * (1 - dones[i]))
+    return target_values
+\end{lstlisting}
+
+\textbf{Explanation:}
+\begin{itemize}
+    \item The function takes in the current Q-values, actions, rewards, next state Q-values, and a terminal state indicator (\texttt{dones}).
+    \item For each action \(a_i\), the target Q-value is calculated using the Bellman equation.
+    \item The term \((1 - \text{dones}[i])\) ensures that if the next state is terminal (\(\text{done} = 1\)), the discounted future reward is ignored.
+    \item The target Q-value replaces the predicted Q-value for the corresponding action in the batch.
+\end{itemize}
+
+This implementation ensures the agent learns effectively from both immediate and delayed rewards.
 
 \subsection{Neural Network Implementation}
-The neural network was implemented in PyTorch, and the Adam optimizer was used for gradient descent. The Mean Squared Error loss was employed to minimize the difference between predicted Q-values and target Q-values.
+
+The neural network used in this project was implemented using PyTorch. It is a Convolutional Neural Network (CNN) specifically designed to process pixel-based inputs from the game environment and output Q-values for the possible actions.
+
+\subsubsection{Architecture}
+The architecture of the neural network consists of the following layers:
+\begin{itemize}
+    \item \textbf{Convolutional Layers:} Three convolutional layers are used to extract spatial features from the pixel-based input. These layers apply filters to capture patterns such as edges, textures, and movement within the game frames.
+    \item \textbf{Fully Connected Layers:} Following the convolutional layers, fully connected layers map the extracted features to Q-values for each possible action. This allows the network to estimate the expected rewards for each action given the current state.
+    \item \textbf{Activation Functions:} Rectified Linear Units (ReLU) are applied after each layer to introduce non-linearity and allow the network to model complex patterns.
+\end{itemize}
+
+The input to the network is a preprocessed image from the game environment, resized to a fixed resolution and converted to grayscale. This reduces the computational complexity and focuses on essential visual information.
+
+\subsubsection{Training Setup}
+The training process is guided by the following choices:
+\begin{itemize}
+    \item \textbf{Optimizer:} The Adam optimizer is employed for efficient gradient descent. It dynamically adjusts the learning rate for each parameter based on the first and second moments of the gradients.
+    \item \textbf{Loss Function:} The Mean Squared Error (MSE) loss is used to minimize the difference between the predicted Q-values and the target Q-values derived from the Bellman equation. This encourages the model to make more accurate predictions over time.
+    \item \textbf{Replay Buffer:} A replay buffer is used to store past experiences (state, action, reward, next state, done). During training, batches of experiences are sampled randomly to break temporal correlations and stabilize training.
+    \item \textbf{Batch Size:} A fixed batch size is used for training to balance memory usage and computational efficiency.
+    \item \textbf{Epsilon Decay:} An epsilon-greedy strategy is applied during training to encourage exploration of the game environment. The value of epsilon decays over time to prioritize exploitation of learned strategies as training progresses.
+\end{itemize}
+
+\subsubsection{Why Convolutional Neural Networks?}
+CNNs are chosen for this implementation because they are particularly effective at extracting spatial features from images. By convolving filters across input frames, the network can learn to recognize important visual cues, such as the position of obstacles and the bird's location, which are critical for decision-making in the game.
 
 \section{Experiments and Results}
 \subsection{Experimentation}
@@ -142,7 +194,7 @@ Multiple training runs were conducted with varying seeds. The performance was ev
 \subsection{Results}
 The performance of the agent is summarized in Table~\ref{tab:performance}.
 
-\begin{table}[h!]
+\begin{table}[!ht]
     \centering
     \begin{tabular}{|l|c|c|}
     \hline
@@ -161,11 +213,11 @@ The performance of the agent is summarized in Table~\ref{tab:performance}.
     2600        & 93                        & 308                 \\ \hline
     2620        & 102                       & 323                 \\ \hline
     2670        & 114                       & 371                 \\ \hline
-    2870        & 167                       & 408                 \\ \hline
-    2900        & 223                       & 578                 \\ \hline
-    3040        & 265                       & 578                 \\ \hline
-    3100        & 311                       & 675                 \\ \hline
-    3250        & 355                       & 763                 \\ \hline
+    2870        & 133                       & 408                 \\ \hline
+    2900        & 170                       & 578                 \\ \hline
+    3040        & 211                       & 578                 \\ \hline
+    3100        & 233                       & 675                 \\ \hline
+    3250        & 267                       & 763                 \\ \hline
     \end{tabular}
     \caption{The agent's performance during training, showing both the average score (indicating consistency) and the best score (representing peak performance) at various epochs.}
     \label{tab:performance}
