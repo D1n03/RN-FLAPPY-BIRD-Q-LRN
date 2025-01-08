@@ -110,7 +110,7 @@ class Agent:
         obs_image_normalized = obs_image_resized.astype(np.uint8)
 
         # Convert to tensor and add a batch dimension
-        obs_processed = torch.tensor(obs_image_normalized, dtype=torch.float32).unsqueeze(0)
+        obs_processed = torch.tensor(obs_image_normalized, dtype=torch.float32).unsqueeze(0).to(self.device)
 
         return obs_processed
 
@@ -277,7 +277,7 @@ class Agent:
             cv2.imshow("Flappy Bird", cv2.cvtColor(obs_image_rgb, cv2.COLOR_RGB2BGR))
             cv2.waitKey(1)
 
-            obs_processed = self.preprocess_image(obs_image_rgb)
+            obs_processed = self.preprocess_image(obs_image_rgb).to(self.device)
 
             while True:
                 with torch.no_grad():
@@ -299,7 +299,7 @@ class Agent:
                         cv2.waitKey(1)
                 next_image_rgb = self.env.render()
 
-                next_obs_processed = self.preprocess_image(next_image_rgb)
+                next_obs_processed = self.preprocess_image(next_image_rgb).to(self.device)
                 if done:
                     score = max(score, info['score'])
                     max_score = max(max_score, score)
