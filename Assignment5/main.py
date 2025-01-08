@@ -251,10 +251,14 @@ class Agent:
     def load_model(self, filepath):
         """Load a pre-trained model"""
         self.loaded = True
-        checkpoint = torch.load(filepath, weights_only=False)
+        # Map the checkpoint to the current device
+        checkpoint = torch.load(filepath, map_location=self.device, weights_only=False)
 
+        # Load model and optimizer states
         self.model.load_state_dict(checkpoint['model_state_dict'])
         self.optimizer.load_state_dict(checkpoint['optimizer_state_dict'])
+
+        # Load other parameters
         self.lr = checkpoint['lr']
         self.gamma = checkpoint['gamma']
         self.epsilon = checkpoint['epsilon']
@@ -312,7 +316,7 @@ class Agent:
 
 if __name__ == '__main__':
     agent = Agent()
-    agent.load_model("checkpoints/checkpoint_model2-32.0.pth")
-    agent.train(2000)
-    # agent.test()
+    agent.load_model("checkpoints/checkpoint_model2-60.0.pth")
+    # agent.train(2000)
+    agent.test()
     # agent.train(20000)
